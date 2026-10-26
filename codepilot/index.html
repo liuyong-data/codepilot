@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodePilot · 代码智能诊断工作台</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header class="app-header">
+        <div class="brand">
+            <div class="logo">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <rect x="2" y="2" width="24" height="24" rx="6" fill="url(#g)"/>
+                    <path d="M9 18 L13 10 L15 14 L19 10" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="19" cy="10" r="1.6" fill="#fff"/>
+                    <defs>
+                        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0" stop-color="#6366f1"/>
+                            <stop offset="1" stop-color="#06b6d4"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <div class="brand-text">
+                <h1>CodePilot</h1>
+                <span class="brand-sub">代码智能诊断工作台</span>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <select id="langSelect" class="tool-btn" title="选择诊断语言">
+                <option value="python">Python</option>
+                <option value="javascript">JavaScript</option>
+            </select>
+            <button id="btnDiagnose" class="tool-btn primary">
+                <span class="icon">▶</span> 开始诊断
+            </button>
+            <button id="btnFixAll" class="tool-btn success" disabled>
+                <span class="icon">✦</span> 一键修复
+            </button>
+            <button id="btnSample" class="tool-btn" title="载入示例错误代码">
+                <span class="icon">📄</span> 示例
+            </button>
+            <button id="btnClear" class="tool-btn" title="清空编辑器">
+                <span class="icon">🗑</span> 清空
+            </button>
+            <button id="btnCopy" class="tool-btn" title="复制修复后的代码">
+                <span class="icon">⧉</span> 复制
+            </button>
+            <button id="btnUndo" class="tool-btn" title="撤销 (Ctrl+Z)" disabled>
+                <span class="icon">↶</span> 撤销
+            </button>
+        </div>
+    </header>
+
+    <main class="workspace">
+        <!-- 左侧：代码编辑器 -->
+        <section class="editor-panel">
+            <div class="panel-header">
+                <span class="panel-title">代码编辑器</span>
+                <span class="panel-info" id="editorInfo">就绪</span>
+            </div>
+            <div class="editor-wrap" id="editorWrap">
+                <div class="gutter" id="gutter"></div>
+                <div class="code-area">
+                    <pre class="code-highlight" id="codeHighlight"><code></code></pre>
+                    <textarea class="code-input" id="codeInput" spellcheck="false"
+                        placeholder="# 在这里粘贴你的 Python 代码，然后点击「开始诊断」&#10;# 例如：&#10;Print('hello world')"></textarea>
+                </div>
+            </div>
+            <div class="status-bar">
+                <span class="status-item" id="statusCursor">行 1, 列 1</span>
+                <span class="status-item" id="statusCount">0 行</span>
+                <span class="status-item" id="statusMsg">准备就绪</span>
+            </div>
+        </section>
+
+        <!-- 右侧：诊断结果 -->
+        <section class="result-panel">
+            <div class="panel-header">
+                <span class="panel-title">诊断结果</span>
+                <span class="panel-info" id="resultInfo">0 个问题</span>
+            </div>
+            <div class="result-summary" id="resultSummary">
+                <div class="summary-card errors">
+                    <span class="sum-num" id="sumErrors">0</span>
+                    <span class="sum-label">错误</span>
+                </div>
+                <div class="summary-card warnings">
+                    <span class="sum-num" id="sumWarnings">0</span>
+                    <span class="sum-label">警告</span>
+                </div>
+                <div class="summary-card hints">
+                    <span class="sum-num" id="sumHints">0</span>
+                    <span class="sum-label">建议</span>
+                </div>
+                <div class="summary-card fixable">
+                    <span class="sum-num" id="sumFixable">0</span>
+                    <span class="sum-label">可修复</span>
+                </div>
+            </div>
+            <div class="result-list" id="resultList">
+                <div class="empty-state">
+                    <div class="empty-icon">🔍</div>
+                    <p>点击「开始诊断」检测代码问题</p>
+                    <p class="empty-tip">诊断结果会显示在这里，包含错误位置与修复建议</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 修复对比模态框 -->
+    <div class="modal" id="fixModal">
+        <div class="modal-mask"></div>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2>修复结果对比</h2>
+                <button class="modal-close" id="modalClose">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="diff-wrap">
+                    <div class="diff-col">
+                        <div class="diff-title">修复前</div>
+                        <pre class="diff-content before" id="diffBefore"></pre>
+                    </div>
+                    <div class="diff-col">
+                        <div class="diff-title">修复后</div>
+                        <pre class="diff-content after" id="diffAfter"></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="tool-btn" id="btnApplyFix">应用修复</button>
+                <button class="tool-btn" id="btnDismissFix">放弃</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="js/diagnostic-engine.js"></script>
+    <script src="js/python-rules.js"></script>
+    <script src="js/javascript-rules.js"></script>
+    <script src="js/code-fixer.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
